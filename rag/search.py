@@ -29,6 +29,19 @@ class Hit:
     score: float
 
 
+def rrf_fuse(rankings: list[list[int]], k: int = RRF_K) -> list[tuple[int, float]]:
+    """Reciprocal rank fusion. Each ranking is a list of chunk ids, best first.
+
+    A chunk's score is the sum of 1 / (k + rank) over the rankings it appears in (rank starts at 1).
+    Ties keep the order in which chunks were first seen, so the result is deterministic.
+    """
+    fused: dict[int, float] = {}
+    for ranking in rankings:
+        for rank, chunk_id in enumerate(ranking):
+            fused[chunk_id] = fused.get(chunk_id, 0.0) + 1.0 / (k + rank + 1)
+    return sorted(fused.items(), key=lambda kv: -kv[1])
+
+
 class Retriever:
     def __init__(self, chunks_path: str = "data/chunks.jsonl", emb_path: str = "data/embeddings.npy"):
         from rank_bm25 import BM25Okapi
@@ -64,11 +77,8 @@ class Retriever:
 
     # --- fusion and reranking ---------------------------------------------
     def hybrid(self, query: str, k: int = 50) -> list[Hit]:
-        fused: dict[int, float] = {}
-        for hits in (self.dense(query, k), self.sparse(query, k)):
-            for rank, h in enumerate(hits):
-                fused[h.chunk_id] = fused.get(h.chunk_id, 0.0) + 1.0 / (RRF_K + rank + 1)
-        return [Hit(i, s) for i, s in sorted(fused.items(), key=lambda kv: -kv[1])[:k]]
+        rankings = [[h.chunk_id for h in self.dense(query, k)], [h.chunk_id for h in self.sparse(query, k)]]
+        return [Hit(i, s) for i, s in rrf_fuse(rankings)[:k]]
 
     def rerank(self, query: str, candidates: list[Hit], top: int = 10) -> list[Hit]:
         if self._reranker is None:

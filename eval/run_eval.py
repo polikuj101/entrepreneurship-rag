@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from rag.metrics import is_hit  # noqa: E402
 from rag.search import Retriever  # noqa: E402
 
 MODES = ["dense", "bm25", "hybrid", "hybrid_rerank"]
@@ -28,11 +29,9 @@ def main() -> None:
         for q in qs:
             res = r.search(q["question"], mode=mode, top=max(KS))
             for k in KS:
-                if any(r.chunks[h.chunk_id]["source"] == q["source"] and r.chunks[h.chunk_id]["loc"] == q["page"]
-                       for h in res[:k]):
+                if is_hit(r.chunks, res, q["source"], q["page"], k):
                     hits[k] += 1
-            if not any(r.chunks[h.chunk_id]["source"] == q["source"] and r.chunks[h.chunk_id]["loc"] == q["page"]
-                       for h in res[:3]):
+            if not is_hit(r.chunks, res, q["source"], q["page"], 3):
                 misses.setdefault(mode, []).append(q["id"])
         ms = (time.perf_counter() - t0) / len(qs) * 1000
         rows.append((mode, {k: hits[k] / len(qs) for k in KS}, ms))

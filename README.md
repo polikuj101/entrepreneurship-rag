@@ -62,6 +62,15 @@ python rag/search.py "how should I raise prices"  # builds embeddings on first r
 python eval/run_eval.py                           # writes eval/results.md
 ```
 
+Run the tests (no books and no model downloads needed; they use small generated PDFs):
+
+```bash
+pip install -r requirements-dev.txt
+python -m pytest
+```
+
+The 21 tests cover chunking (size, overlap, no word lost, page numbers, pages without text), reciprocal rank fusion (formula and tie order), the Hit@k metric (wrong book, wrong page, cutoff) and the evaluation file (fields, unique ids). They do not test retrieval quality; that is what `eval/run_eval.py` measures.
+
 The evaluation questions refer to specific file names and pages, so the numbers only reproduce if you have the same files. The books I used are listed in `eval/questions.jsonl` by path. Page numbers are PDF page indexes, not printed page numbers.
 
 ## Limitations
@@ -79,7 +88,9 @@ The evaluation questions refer to specific file names and pages, so the numbers 
 
 ```
 rag/ingest.py          parse and chunk
-rag/search.py          dense, BM25, hybrid, rerank
+rag/search.py          dense, BM25, hybrid, rerank (rrf_fuse is a pure function)
+rag/metrics.py         is_hit, the Hit@k check
+tests/                 pytest tests, 21 in total
 eval/questions.jsonl   34 questions with gold book and page
 eval/run_eval.py       Hit@k for each mode
 eval/results.md        output of the last run

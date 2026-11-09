@@ -6,7 +6,7 @@ A retrieval pipeline over 26 business and self-development books and guides (18 
 
 ## Status, stated plainly
 
-- **This is a rebuild.** I built an earlier version of this project and lost the code. This repository is a new implementation of the same idea, written in November 2026. Numbers from the earlier version are not claimed here.
+- **This is a rebuild.** An earlier version (November 2025) used LangChain, Chroma, the all-MiniLM-L6-v2 embedding model, a bge-reranker-base cross-encoder and a local Llama 3 model through Ollama to answer questions. It had no evaluation, so there are no quality numbers for it. This repository is a new implementation (November 2026) that measures retrieval; it does not generate answers.
 - **Retrieval only.** There is no answer-generation step in this repository. It finds passages; it does not write answers.
 - **Small, optimistic evaluation.** 34 questions, written by an AI coding assistant (Claude Code) from randomly sampled pages. I have not independently reviewed every question and gold page. The questions share vocabulary with their source pages, which favors keyword retrieval and makes every score optimistic. See [Limitations](#limitations).
 - **The books are not included.** They are copyrighted, and several of them are marked "not for distribution". You need your own copies to reproduce the numbers. The repository contains code, evaluation questions with page references, and results only.

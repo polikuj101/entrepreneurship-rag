@@ -1,6 +1,6 @@
 # Entrepreneurship RAG: hybrid retrieval over a small book corpus, with a measured Hit Rate
 
-A retrieval pipeline over 19 business books (17 PDFs, 2 EPUBs): page-level chunking, dense embeddings, BM25, reciprocal rank fusion, and a cross-encoder reranker. The repository includes a 34-question evaluation set and the script that measures Hit@k for each retrieval mode.
+A retrieval pipeline over 26 business and self-development books and guides (18 PDFs, 8 EPUBs): page-level chunking, dense embeddings, BM25, reciprocal rank fusion, and a cross-encoder reranker. The repository includes a 34-question evaluation set and the script that measures Hit@k for each retrieval mode.
 
 **Author:** Nurbolat (Bo) Mirash, [polikuj101](https://github.com/polikuj101)
 
@@ -18,15 +18,15 @@ Measured by `eval/run_eval.py` on 34 questions. A question is a hit at k if one 
 
 | Mode | Hit@1 | Hit@3 | Hit@5 | Hit@10 | Latency per query (CPU) |
 |---|---|---|---|---|---|
-| Dense (bge-small) | 50% (17/34) | 79% (27/34) | 88% (30/34) | 94% (32/34) | 16 ms |
-| BM25 | 68% (23/34) | 85% (29/34) | 94% (32/34) | 94% (32/34) | 25 ms |
-| Hybrid (RRF of dense + BM25) | 65% (22/34) | 91% (31/34) | 97% (33/34) | 100% (34/34) | 48 ms |
-| Hybrid + reranker (bge-reranker-base) | **91% (31/34)** | **100% (34/34)** | 100% (34/34) | 100% (34/34) | 6,994 ms |
+| Dense (bge-small) | 44% (15/34) | 76% (26/34) | 88% (30/34) | 91% (31/34) | 18 ms |
+| BM25 | 65% (22/34) | 82% (28/34) | 91% (31/34) | 94% (32/34) | 78 ms |
+| Hybrid (RRF of dense + BM25) | 53% (18/34) | 91% (31/34) | 97% (33/34) | 100% (34/34) | 92 ms |
+| Hybrid + reranker (bge-reranker-base) | **85% (29/34)** | **100% (34/34)** | 100% (34/34) | 100% (34/34) | 6,227 ms |
 
 What I take from this, and what I do not:
 
-- Fusing dense and BM25 beat either alone at Hit@3 (91% against 79% and 85%). With 34 questions, one question is about 3 points, so differences of a few points are not meaningful.
-- The reranker moved Hit@1 from 65% to 91%, which is the largest effect in the table. It is also about 150 times slower on CPU, because it scores 30 candidate passages per query with a cross-encoder. On a GPU this would be much faster; I did not measure it.
+- Fusing dense and BM25 beat either alone at Hit@3 (91% against 76% and 82%). With 34 questions, one question is about 3 points, so differences of a few points are not meaningful.
+- The reranker moved Hit@1 from 53% to 85%, which is the largest effect in the table. It is also about 70 times slower than the hybrid step on CPU, because it scores 30 candidate passages per query with a cross-encoder. On a GPU this would be much faster; I did not measure it.
 - 100% Hit@3 on 34 questions does not mean 100% on real use. See below.
 
 ## How it works
@@ -50,7 +50,7 @@ books/ (not in repo) -> rag/ingest.py -> data/chunks.jsonl
 | Fusion | Reciprocal rank fusion, k = 60 | No score calibration between dense and BM25 needed |
 | Rerank | `BAAI/bge-reranker-base` cross-encoder on the top 30 | Re-scores query and passage together |
 
-The corpus: 19 files, 1,911 pages, 5,317 chunks, about 919,000 words. Of these pages, 147 had no extractable text (scanned or image-only) and were skipped. One PDF, a 12-page SaaS playbook, has no text layer at all and contributes nothing.
+The corpus: 26 files, 2,733 pages, 11,161 chunks, about 2.0 million words. Of these pages, 185 had no extractable text (scanned or image-only) and were skipped. One PDF, a 12-page SaaS playbook, has no text layer at all and contributes nothing.
 
 ## Reproduce
 
@@ -70,7 +70,8 @@ The evaluation questions refer to specific file names and pages, so the numbers 
 - **The questions favor the retrievers.** They were written from the target page, so they reuse its words. Real users paraphrase more. Dense retrieval is likely to gain relative to BM25 on real queries; I did not test that.
 - **One gold page per question.** Several books cover the same topics, such as raising prices, ad hooks and show rates. A good answer from a different page counts as a miss here, so the true quality may be higher than the table shows. Some questions may also be answerable from a second page I did not label.
 - **Repeated footers add noise.** Several PDFs repeat a copyright footer on every page. I did not strip it.
-- **Mostly one author's books.** 12 of 19 files are playbooks by the same author, which means near-duplicate topics and a style that is easy to retrieve.
+- **Many books by one author.** 12 of 26 files are playbooks by the same author, which means near-duplicate topics and a style that is easy to retrieve.
+- **Questions cover only part of the corpus.** All 34 questions were written when the collection had 19 files. The 7 files added later contain no gold pages and act only as extra distractors, so no question tests retrieval from them.
 - **CPU latency only.** The 7-second reranker figure was measured on a laptop CPU. Throughput under load was not tested.
 - **No answer quality.** Nothing here measures whether a language model would answer correctly from the retrieved passages.
 

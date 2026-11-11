@@ -69,9 +69,30 @@ pip install -r requirements-dev.txt
 python -m pytest
 ```
 
-The 21 tests cover chunking (size, overlap, no word lost, page numbers, pages without text), reciprocal rank fusion (formula and tie order), the Hit@k metric (wrong book, wrong page, cutoff) and the evaluation file (fields, unique ids). They do not test retrieval quality; that is what `eval/run_eval.py` measures.
+The 32 tests cover chunking (size, overlap, no word lost, page numbers, pages without text), reciprocal rank fusion (formula and tie order), the Hit@k metric (wrong book, wrong page, cutoff), the evaluation file (fields, unique ids) and the MCP tool functions (argument checks, result shape, clipping). They do not test retrieval quality; that is what `eval/run_eval.py` measures.
 
 The evaluation questions refer to specific file names and pages, so the numbers only reproduce if you have the same files. The books I used are listed in `eval/questions.jsonl` by path. Page numbers are PDF page indexes, not printed page numbers.
+
+## MCP server
+
+An [MCP](https://modelcontextprotocol.io) server exposes the index to AI agents, for example Claude Code, over stdio. It has three tools:
+
+| Tool | What it does |
+|---|---|
+| `search_books(query, mode, top, max_chars)` | Returns the best passages with source file, page, score and text. `mode` is `dense`, `bm25`, `hybrid` or `hybrid_rerank` (default). |
+| `get_page(source, page)` | Returns the full text of one page, so an agent can read around a hit. |
+| `list_books()` | Lists the indexed files with page counts and pages without text. |
+
+Bad arguments come back to the agent as a readable tool error, not a server crash. The models load on the first search, which takes a while on CPU; listing tools is instant.
+
+```bash
+pip install -r requirements-mcp.txt
+claude mcp add entrepreneurship-rag -- "/path/to/repo/.venv/Scripts/python.exe" "/path/to/repo/rag/mcp_server.py"
+```
+
+**How it was checked:** `python scripts/smoke_mcp.py` starts the server as a subprocess from an unrelated working directory, lists its tools, calls each one with the official MCP client (`mcp` 2.3.0) and confirms that an invalid mode returns an error result. I ran it on my machine against the 26-book index. The tool logic has unit tests in `tests/test_tools.py`.
+
+**Not checked:** I have not tested it inside Claude Code or another MCP host; the `claude mcp add` line is the standard command, not something I ran for this repository. The server returns passage text from your own copy of the books to your own client and uploads nothing, but it has no authentication and is meant for local use only. Like the rest of the repository, it was written with Claude Code.
 
 ## Limitations
 
@@ -90,7 +111,10 @@ The evaluation questions refer to specific file names and pages, so the numbers 
 rag/ingest.py          parse and chunk
 rag/search.py          dense, BM25, hybrid, rerank (rrf_fuse is a pure function)
 rag/metrics.py         is_hit, the Hit@k check
-tests/                 pytest tests, 21 in total
+rag/tools.py           MCP tool logic (search_books, get_page, list_books), no model imports
+rag/mcp_server.py      the MCP server (stdio)
+scripts/smoke_mcp.py   starts the server and calls every tool with an MCP client
+tests/                 pytest tests, 32 in total
 eval/questions.jsonl   34 questions with gold book and page
 eval/run_eval.py       Hit@k for each mode
 eval/results.md        output of the last run
